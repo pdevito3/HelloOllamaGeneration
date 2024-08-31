@@ -1,0 +1,6 @@
+﻿services:
+  helloollamageneration:
+    image: helloollamageneration
+    build:
+      context: .
+      dockerfile: HelloOllamaGeneration/Dockerfile
