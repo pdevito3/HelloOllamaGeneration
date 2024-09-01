@@ -20,7 +20,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 
     protected string OutputDirPath => Path.Combine(OutputDirRoot, DirectoryName);
 
-    private readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    private readonly JsonSerializerOptions SerializerOptions = new (JsonSerializerDefaults.Web)
     {
         WriteIndented = true
     };
@@ -55,11 +55,11 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
     
     protected async Task<TResponse> GetAndParseJsonChatCompletion<TResponse>(string prompt, int? maxTokens = null, object? tools = null)
     {
-        var executionSettings = new SimpleOllamaChatService.PromptSettings
+        var executionSettings = new PromptSettings
         {
             MaxTokens = maxTokens,
             Temperature = 0.9f,
-            ResponseFormat = "json_object"
+            ResponseFormat = ResponseFormat.Json
         };
         
         var kernel = (Kernel?)null;
