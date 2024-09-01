@@ -13,7 +13,7 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 
 internal class OllamaChatCompletionService(HttpClient httpClient, string modelName) : IChatCompletionService
 {
-    private static readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -34,7 +34,7 @@ internal class OllamaChatCompletionService(HttpClient httpClient, string modelNa
             return [new ChatMessageContent(AuthorRole.Assistant, json ? JsonSerializer.Serialize(responseText) : responseText)];
         }
 
-        var responseContent = await response.Content.ReadFromJsonAsync<OllamaResponseStreamEntry>(_jsonSerializerOptions, cancellationToken);
+        var responseContent = await response.Content.ReadFromJsonAsync<OllamaResponseStreamEntry>(JsonSerializerOptions, cancellationToken);
         return [new ChatMessageContent(AuthorRole.Assistant, responseContent!.Response!)];
     }
 
@@ -63,7 +63,7 @@ internal class OllamaChatCompletionService(HttpClient httpClient, string modelNa
                 var toolCallsJson = toolCallBuilder!.ToString().Trim();
                 try
                 {
-                    var toolCalls = JsonSerializer.Deserialize<OllamaChatMessageToolCall[]>(toolCallsJson, _jsonSerializerOptions)!;
+                    var toolCalls = JsonSerializer.Deserialize<OllamaChatMessageToolCall[]>(toolCallsJson, JsonSerializerOptions)!;
                     foreach (var toolCall in toolCalls)
                     {
                         if (FindFunction(kernel, toolCall.Name) is { } function)
@@ -138,19 +138,20 @@ internal class OllamaChatCompletionService(HttpClient httpClient, string modelNa
             yield break;
         }
 
-        var responseStream = await response.Content.ReadAsStreamAsync();
+        var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var streamReader = new StreamReader(responseStream);
         var line = (string?)null;
         var isProcessingToolCalls = false;
         var capturingLeadingChunks = string.Empty;
-        while ((line = await streamReader.ReadLineAsync()) is not null)
+        while ((line = await streamReader.ReadLineAsync(cancellationToken)) is not null)
         {
-            var entry = JsonSerializer.Deserialize<OllamaResponseStreamEntry>(line, _jsonSerializerOptions);
+            var entry = JsonSerializer.Deserialize<OllamaResponseStreamEntry>(line, JsonSerializerOptions);
             if (entry is { Done: true })
             {
                 break;
             }
-            else if (entry is { Response: { } chunkText })
+
+            if (entry is { Response: { } chunkText })
             {
                 if (capturingLeadingChunks is not null)
                 {
@@ -226,7 +227,7 @@ internal class OllamaChatCompletionService(HttpClient httpClient, string modelNa
             },
             Raw = true,
             Stream = streaming,
-        }, options: _jsonSerializerOptions);
+        }, options: JsonSerializerOptions);
     }
 
     private static string FormatRawPrompt(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
@@ -251,7 +252,7 @@ internal class OllamaChatCompletionService(HttpClient httpClient, string modelNa
                 if (tools is { Length: > 0 })
                 {
                     sb.Append("[AVAILABLE_TOOLS] ");
-                    sb.Append(JsonSerializer.Serialize(tools.Select(OllamaChatFunction.Create), _jsonSerializerOptions));
+                    sb.Append(JsonSerializer.Serialize(tools.Select(OllamaChatFunction.Create), JsonSerializerOptions));
                     sb.Append("[/AVAILABLE_TOOLS]");
                 }
             }
