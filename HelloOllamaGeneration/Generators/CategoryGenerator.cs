@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Models;
 
-public class CategoryGenerator(IServiceProvider services) : GeneratorBase<Category>(services)
+public class CategoryGenerator(IServiceProvider services) : SimpleGeneratorBase<Category>(services)
 {
     protected override string DirectoryName => "categories";
 
@@ -19,10 +19,10 @@ public class CategoryGenerator(IServiceProvider services) : GeneratorBase<Catego
             yield break;
         }
 
-        // var numCategories = 50;
-        // var batchSize = 25;
-        var numCategories = 4;
-        var batchSize = 2;
+        var numCategories = 50;
+        var batchSize = 25;
+        // var numCategories = 4;
+        // var batchSize = 2;
         var categoryNames = new HashSet<string>();
 
         while (categoryNames.Count < numCategories)
