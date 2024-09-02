@@ -78,12 +78,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
                 ChatCompletionService.GetChatMessageContentAsync(chatHistory, executionSettings, kernel));
             var responseString = response.ToString();
 
-            // Due to what seems like a server-side bug, when asking for a json_object response and with tools enabled,
-            // it often replies with two or more JSON objects concatenated together (duplicates or slight variations).
-            // As a workaround, just read the first complete JSON object from the response.
-            // confirmed ollama issue https://www.youtube.com/watch?v=1DRS5KaLe3k
-            
-            // the single value part doesn't seem to be in the actual OG code, so just wrapping it all in a try catch to get it closer to what it expects
+            // using a retry because sometimes it doesn't return complete json
             var parsed = ReadAndDeserializeChatResponse<TResponse>(responseString, SerializerOptions)!;
 
             return parsed;
