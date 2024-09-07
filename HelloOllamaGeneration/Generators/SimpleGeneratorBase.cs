@@ -9,6 +9,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 
 public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 {
@@ -20,7 +24,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 
     protected string OutputDirPath => Path.Combine(OutputDirRoot, DirectoryName);
 
-    private readonly JsonSerializerOptions SerializerOptions = new (JsonSerializerDefaults.Web)
+    private readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
     };
@@ -52,16 +56,18 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
     protected abstract IAsyncEnumerable<T> GenerateCoreAsync();
 
     protected ISimpleOllamaChatService ChatCompletionService { get; } = services.GetRequiredService<ISimpleOllamaChatService>();
-    
+
     protected async Task<TResponse> GetAndParseJsonChatCompletion<TResponse>(string prompt, int? maxTokens = null, object? tools = null)
     {
         var executionSettings = new PromptSettings
         {
             MaxTokens = maxTokens,
             Temperature = 0.9f,
-            ResponseFormat = ResponseFormat.Json
+            ResponseFormat = ResponseFormat.Json,
+            FormatRawPrompt = (messages, k, autoInvoke) 
+                => FormatMistralPromptWithFunctions(messages, k, autoInvoke)
         };
-        
+
         var kernel = (Kernel?)null;
         if (tools is not null)
         {
@@ -74,7 +80,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 
         return await RunWithRetries(async () =>
         {
-            var response = await RunWithRetries(() => 
+            var response = await RunWithRetries(() =>
                 ChatCompletionService.GetChatMessageContentAsync(chatHistory, executionSettings, kernel));
             var responseString = response.ToString();
 
@@ -103,7 +109,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
             }
         }
     }
-    
+
     private static TResponse? ReadAndDeserializeChatResponse<TResponse>(string json, JsonSerializerOptions options)
     {
         try
@@ -111,7 +117,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
             var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json).AsSpan());
             return JsonSerializer.Deserialize<TResponse>(ref reader, options);
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             // Console.WriteLine($"Error deserializing JSON {json}: {ex.Message}");
             Console.WriteLine("Error deserializing JSON");
@@ -161,5 +167,92 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
         mapTask.ContinueWith(_ => outputs.Writer.TryComplete());
 
         return outputs.Reader.ReadAllAsync();
+    }
+
+    private static string FormatSimpleMistralPrompt(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
+    {
+        var sb = new StringBuilder();
+
+        foreach (var message in messages)
+        {
+            if (message.Role == AuthorRole.User || message.Role == AuthorRole.System)
+            {
+                sb.Append("[INST] ").Append(message.Content).Append(" [/INST]");
+            }
+            else if (message.Role == AuthorRole.Tool)
+            {
+                sb.Append("[TOOL_CALLS] ").Append(message.Content).Append(" [/TOOL_CALLS]\n\n");
+            }
+            else
+            {
+                sb.Append("</s> "); // That's right, there's no matching <s>. See https://discuss.huggingface.co/t/skew-between-mistral-prompt-in-docs-vs-chat-template/66674/2
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static string FormatMistralPromptWithFunctions(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
+    {
+        // TODO: First fetch the prompt template for the model via /api/show, and then use
+        // that to format the messages. Currently this is hardcoded to the Mistral prompt,
+        // i.e.: [INST] {{ if .System }}{{ .System }} {{ end }}{{ .Prompt }} [/INST]
+        var sb = new StringBuilder();
+        var indexOfLastUserOrSystemMessage = IndexOfLast(messages, m => m.Role == AuthorRole.User || m.Role == AuthorRole.System);
+
+        // IMPORTANT: The whitespace in the prompt is significant. Do not add or remove extra spaces/linebreaks,
+        // as this affects tokenization. Mistral's function calling is useless unless you get this exactly right.
+
+        for (var index = 0; index < messages.Count; index++)
+        {
+            var message = messages[index];
+
+            // Emit tools descriptor immediately before the final [INST]
+            if (index == indexOfLastUserOrSystemMessage && autoInvokeFunctions && kernel is not null)
+            {
+                var tools = kernel.Plugins.SelectMany(p => p.GetFunctionsMetadata()).ToArray() ?? [];
+                if (tools is { Length: > 0 })
+                {
+                    sb.Append("[AVAILABLE_TOOLS] ");
+                    sb.Append(JsonSerializer.Serialize(tools.Select(OllamaChatFunction.Create), OllamaJsonSettings.OllamaJsonSerializerOptions));
+                    sb.Append("[/AVAILABLE_TOOLS]");
+                }
+            }
+
+            if (message.Role == AuthorRole.User || message.Role == AuthorRole.System)
+            {
+                sb.Append("[INST] ");
+                sb.Append(message.Content);
+                sb.Append(" [/INST]");
+            }
+            else if (message.Role == AuthorRole.Tool)
+            {
+                sb.Append("[TOOL_CALLS] ");
+                sb.Append(message.Content);
+                sb.Append(" [/TOOL_CALLS]\n\n");
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(message.Content)) continue;
+                
+                sb.Append(message.Content);
+                sb.Append("</s> "); // That's right, there's no matching <s>. See https://discuss.huggingface.co/t/skew-between-mistral-prompt-in-docs-vs-chat-template/66674/2
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static int IndexOfLast<T>(IReadOnlyList<T> messages, Func<T, bool> value)
+    {
+        for (var i = messages.Count - 1; i >= 0; i--)
+        {
+            if (value(messages[i]))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

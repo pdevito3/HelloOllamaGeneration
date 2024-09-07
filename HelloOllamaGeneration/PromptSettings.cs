@@ -1,5 +1,10 @@
 namespace HelloOllamaGeneration;
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+
 public enum ResponseFormat { Json, Text }
 public record PromptSettings
 {
@@ -10,6 +15,17 @@ public record PromptSettings
     public bool Stream { get; set; }
     public bool Raw { get; set; } = true;
     public int? MaxTokens { get; set; }
-        
+
     public bool IsJson() => ResponseFormat == ResponseFormat.Json;
+
+    public Func<ChatHistory, Kernel?, bool, string>? FormatRawPrompt { get; set; }
+}
+
+public static class OllamaJsonSettings
+{
+    public static readonly JsonSerializerOptions OllamaJsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
 }
