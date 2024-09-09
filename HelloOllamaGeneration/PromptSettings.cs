@@ -9,7 +9,7 @@ public enum ResponseFormat { Json, Text }
 public record PromptSettings
 {
     public string? ModelId { get; set; }
-    public ResponseFormat ResponseFormat { get; set; }
+    public ResponseFormat ResponseFormat { get; set; } = ResponseFormat.Text;
     public double Temperature { get; set; } = 0.5;
     public double TopP { get; set; } = 1.0;
     public bool Stream { get; set; }
@@ -19,6 +19,7 @@ public record PromptSettings
     public bool IsJson() => ResponseFormat == ResponseFormat.Json;
 
     public Func<ChatHistory, Kernel?, bool, string>? FormatRawPrompt { get; set; }
+    public IEnumerable<string> StopSequences { get; set; } = new List<string>();
 }
 
 public static class OllamaJsonSettings

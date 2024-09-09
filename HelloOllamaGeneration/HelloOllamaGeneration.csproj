@@ -6,6 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <NoWarn>$(NoWarn);SKEXP0001;SKEXP0010;SKEXP0050</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -15,9 +16,13 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="Markdown2Pdf" Version="2.2.1" />
       <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
       <PackageReference Include="Microsoft.SemanticKernel" Version="1.17.2" />
+      <PackageReference Include="PdfPig" Version="0.1.8" />
+      <PackageReference Include="SmartComponents.LocalEmbeddings.SemanticKernel" Version="0.1.0-preview10148" />
+      <PackageReference Include="System.Numerics.Tensors" Version="8.0.0" />
     </ItemGroup>
 
 </Project>

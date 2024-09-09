@@ -20,7 +20,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 
     protected abstract object GetId(T item);
 
-    private static string OutputDirRoot => Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "output");
+    public static string OutputDirRoot => Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "output");
 
     protected string OutputDirPath => Path.Combine(OutputDirRoot, DirectoryName);
 
@@ -89,6 +89,26 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 
             return parsed;
         }, 1);
+    }
+    
+    protected async Task<string> GetChatCompletion(string prompt)
+    {
+        var executionSettings = new PromptSettings
+        {
+            Temperature = 0.9f,
+            FormatRawPrompt = (messages, k, autoInvoke) 
+                => FormatSimpleMistralPrompt(messages, k, autoInvoke),
+            ResponseFormat = ResponseFormat.Text,
+            StopSequences = new[] { "END_OF_CONTENT" }
+        };
+
+        var chatHistory = new ChatHistory();
+        chatHistory.AddUserMessage(prompt);
+
+        var kernel = (Kernel?)null;
+        var response = await RunWithRetries(() =>
+            ChatCompletionService.GetChatMessageContentAsync(chatHistory, executionSettings, kernel));
+        return response?.Content;
     }
 
     private static async Task<TResult> RunWithRetries<TResult>(Func<Task<TResult>> operation, int backoffIncrement = 15)

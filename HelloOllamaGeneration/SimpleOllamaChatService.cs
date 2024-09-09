@@ -31,7 +31,7 @@ public class SimpleOllamaChatService(HttpClient httpClient, string modelName) : 
                 ? JsonSerializer.Serialize(responseText) 
                 : responseText);
         }
-
+            
         var responseContent = await response.Content
             .ReadFromJsonAsync<OllamaResponseStreamEntry>(OllamaJsonSettings.OllamaJsonSerializerOptions, cancellationToken);
         return new ChatMessageContent(AuthorRole.Assistant, responseContent!.Response!);
@@ -54,6 +54,7 @@ public class SimpleOllamaChatService(HttpClient httpClient, string modelName) : 
             },
             Raw = settings?.Raw,
             Stream = settings?.Stream,
+            Stop = (settings?.StopSequences ?? Enumerable.Empty<string>()).Concat(["[/TOOL_CALLS]"]),
         }, options: OllamaJsonSettings.OllamaJsonSerializerOptions);
     }
 
