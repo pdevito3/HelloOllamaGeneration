@@ -177,14 +177,9 @@ public class TicketThreadGenerator(IReadOnlyList<Ticket> tickets, IReadOnlyList<
                 .Where(c => c.Similarity > 0.6f)
                 .ToList();
 
-            if (closest.Any())
-            {
-                return string.Join(Environment.NewLine, closest.Select(c => $"<snippet_from_manual>{c.Text}</snippet_from_manual>"));
-            }
-            else
-            {
-                return "The manual contains no relevant information about this";
-            }
+            return closest.Count > 0 
+                ? string.Join(Environment.NewLine, closest.Select(c => $"<snippet_from_manual>{c.Text}</snippet_from_manual>")) 
+                : "The manual contains no relevant information about this";
         }
     }
 }
