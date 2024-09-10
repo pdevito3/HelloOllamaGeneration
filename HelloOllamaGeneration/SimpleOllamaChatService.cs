@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using HttpClientToCurl;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -23,6 +24,13 @@ public class SimpleOllamaChatService(HttpClient httpClient, string modelName) : 
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/generate");
         request.Content = PrepareChatRequestContent(chatHistory, settings);
+        // httpClient.GenerateCurlInConsole(request,
+        //     config =>
+        //     {
+        //         config.TurnOn = true;
+        //         config.NeedAddDefaultHeaders = true;
+        //         config.EnableCodeBeautification = false;
+        //     });
         var response = await httpClient.SendAsync(request, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -48,13 +56,13 @@ public class SimpleOllamaChatService(HttpClient httpClient, string modelName) : 
             Format = settings.IsJson() ? "json" : null,
             Options = new
             {
-                Temperature = settings?.Temperature ?? 0.5,
+                Temperature = Math.Round(settings?.Temperature ?? 0.5, 4),
                 NumPredict = settings?.MaxTokens,
                 TopP = settings?.TopP ?? 1.0
             },
             Raw = settings?.Raw,
             Stream = settings?.Stream,
-            Stop = (settings?.StopSequences ?? Enumerable.Empty<string>()).Concat(["[/TOOL_CALLS]"]),
+            Stop = (settings?.StopSequences ?? new List<string>()).ToArray()
         }, options: OllamaJsonSettings.OllamaJsonSerializerOptions);
     }
 
