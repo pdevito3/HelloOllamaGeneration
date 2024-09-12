@@ -11,7 +11,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 
-internal class OllamaChatCompletionService(HttpClient httpClient, string modelName) : IChatCompletionService
+public class OllamaChatCompletionService(HttpClient httpClient, string modelName) : IChatCompletionService
 {
     private static readonly JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions
     {

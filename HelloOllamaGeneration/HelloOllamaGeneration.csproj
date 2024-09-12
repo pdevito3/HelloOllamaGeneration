@@ -31,4 +31,8 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\OllamaTools\OllamaTools.csproj" />
+    </ItemGroup>
 </Project>

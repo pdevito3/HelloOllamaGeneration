@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		docker-compose.yml = docker-compose.yml
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OllamaTools", "OllamaTools\OllamaTools.csproj", "{8734176B-9B01-41F3-B234-982F148E4FF3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,5 +19,9 @@ Global
 		{8E63ECFB-AE71-47CB-AF9A-D3A9A2089B69}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8E63ECFB-AE71-47CB-AF9A-D3A9A2089B69}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8E63ECFB-AE71-47CB-AF9A-D3A9A2089B69}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8734176B-9B01-41F3-B234-982F148E4FF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8734176B-9B01-41F3-B234-982F148E4FF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8734176B-9B01-41F3-B234-982F148E4FF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8734176B-9B01-41F3-B234-982F148E4FF3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
