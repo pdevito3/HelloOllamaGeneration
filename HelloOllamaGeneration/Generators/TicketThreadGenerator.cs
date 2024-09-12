@@ -140,6 +140,7 @@ public class TicketThreadGenerator(IReadOnlyList<Ticket> tickets, IReadOnlyList<
         var manual = manuals.Single(m => m.ProductId == product.ProductId);
         var tools = new AssistantTools(embedder, manual);
 
+        // TODO tools are assumed to be on the kernel but are not actually passed in downstream
         return await GetAndParseJsonChatCompletion<Response>(prompt, tools: tools);
     }
 

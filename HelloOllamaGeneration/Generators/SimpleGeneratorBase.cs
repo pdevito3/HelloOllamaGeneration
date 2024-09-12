@@ -63,6 +63,9 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 
     protected async Task<TResponse> GetAndParseJsonChatCompletion<TResponse>(string prompt, int? maxTokens = null, object? tools = null)
     {
+        // TODO tools are assumed to be on the kernel but are not actually passed in
+        // mistral example https://ollama.com/library/mistral
+        // llama example in bruno
         var executionSettings = new PromptSettings
         {
             MaxTokens = maxTokens,
@@ -73,7 +76,7 @@ public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
                     : (messages, k, autoInvoke) => FormatLlamaThreeOnePromptWithFunctions(messages, k, autoInvoke),
             StopSequences = ModelInfoOptions().ModelName == "mistral:7b"  
                 ? new []{ "[/TOOL_CALLS]" } 
-                : new []{ "<|eom_id|>", "<|eot_id|>" }
+                : new []{ "<|eom_id|>", "<|eot_id|>" },
         };
 
         var kernel = (Kernel?)null;
