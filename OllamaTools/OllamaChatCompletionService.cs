@@ -1,4 +1,4 @@
-namespace HelloOllamaGeneration;
+namespace OllamaTools;
 
 using System.Diagnostics.CodeAnalysis;
 using System.Net;

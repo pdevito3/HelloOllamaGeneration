@@ -13,6 +13,7 @@ using System.Threading.Channels;
 using HelloOllamaGeneration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using OllamaTools;
 
 public interface IOLlamaInteractionService
 {

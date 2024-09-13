@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Extensions.Configuration;
+using OllamaTools;
 
 public abstract class SimpleGeneratorBase<T>(IServiceProvider services)
 {

@@ -5,6 +5,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using MinimalAi;
 using MinimalAi.Features;
 using MinimalAi.Models;
+using OllamaTools;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,16 +17,22 @@ builder.Host.UseSerilog();
 
 builder.Services.Configure<ModelInfoOptions>(builder.Configuration.GetSection("ModelInfo"));
 
-var modelInfo = new ModelInfoOptions();
-builder.Configuration.GetSection("ModelInfo").Bind(modelInfo);
-
-// builder.Services.AddScoped<ISimpleOllamaChatService, SimpleOllamaChatService>();
-builder.Services.AddSingleton<HttpClient>(); // TODO: Use IHttpClientFactory
+const string ollamaClientName = "ollama";
+var configuration = builder.Configuration;
+builder.Services.AddHttpClient(ollamaClientName, client =>
+{
+    client.BaseAddress = new Uri(configuration["ModelInfo:ModelName"]);
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
 builder.Services.AddScoped<ISimpleOllamaChatService>(services =>
 {
-    var httpClient = services.GetRequiredService<HttpClient>();
+    var httpClientFactory = services.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient(ollamaClientName);
+     var modelInfo = services.GetRequiredService<IOptionsSnapshot<ModelInfoOptions>>().Value;
+
     httpClient.BaseAddress = new Uri($"http://{modelInfo.Url}");
     httpClient.Timeout = TimeSpan.FromMinutes(5);
+
     return new SimpleOllamaChatService(httpClient, modelInfo.ModelName);
 });
 

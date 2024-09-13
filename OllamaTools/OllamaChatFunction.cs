@@ -1,4 +1,4 @@
-namespace HelloOllamaGeneration;
+namespace OllamaTools;
 
 using Microsoft.SemanticKernel;
 

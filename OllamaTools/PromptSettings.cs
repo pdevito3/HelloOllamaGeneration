@@ -1,4 +1,4 @@
-namespace HelloOllamaGeneration;
+namespace OllamaTools;
 
 using System.Text.Json;
 using System.Text.Json.Serialization;

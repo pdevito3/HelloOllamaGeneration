@@ -1,11 +1,8 @@
-namespace HelloOllamaGeneration;
+namespace OllamaTools;
 
-using System.Data.Common;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
 
 public static class ChatCompletionServiceExtensions
 {
