@@ -9,11 +9,11 @@ using OllamaTools;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
 Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.WithProperty("ApplicationName", builder.Environment.ApplicationName)
+    .WriteTo.Console()
     .CreateLogger();
-builder.Host.UseSerilog();
+builder.Services.AddSerilog();
 
 builder.Services.Configure<ModelInfoOptions>(builder.Configuration.GetSection("ModelInfo"));
 
