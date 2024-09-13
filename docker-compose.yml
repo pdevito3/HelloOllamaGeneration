@@ -4,3 +4,9 @@
     build:
       context: .
       dockerfile: HelloOllamaGeneration/Dockerfile
+
+  minimalai:
+    image: minimalai
+    build:
+      context: .
+      dockerfile: MinimalAi/Dockerfile
