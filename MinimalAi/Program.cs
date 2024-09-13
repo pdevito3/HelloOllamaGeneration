@@ -21,7 +21,7 @@ const string ollamaClientName = "ollama";
 var configuration = builder.Configuration;
 builder.Services.AddHttpClient(ollamaClientName, client =>
 {
-    client.BaseAddress = new Uri(configuration["ModelInfo:ModelName"]);
+    client.BaseAddress = new Uri(configuration["ModelInfo:Url"]);
     client.Timeout = TimeSpan.FromMinutes(5);
 });
 builder.Services.AddScoped<ISimpleOllamaChatService>(services =>
