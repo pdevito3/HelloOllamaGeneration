@@ -3,7 +3,10 @@ namespace MinimalAi.Features;
 using System.Text.RegularExpressions;
 using HelloOllamaGeneration;
 using HelloOllamaGeneration.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Any;
+using Microsoft.OpenApi.Models;
 using Microsoft.SemanticKernel.ChatCompletion;
 using MinimalAi;
 using MinimalAi.Models;
@@ -13,12 +16,41 @@ public static class GenerateCategories
 {
     public static void MapGenerateCategoriesEndpoint(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/categories", async (IOLlamaInteractionService oLlamaInteractionService) =>
+        endpoints.MapPost("/categories", async (
+                
+                [FromQuery] string model, 
+                [FromKeyedServices("mistral")] IOLlamaInteractionService mistral,
+                [FromKeyedServices("llama3.1")] IOLlamaInteractionService llama31) =>
             {
-                return await Handle(oLlamaInteractionService);
+                return model switch
+                {
+                    "mistral" => await Handle(mistral),
+                    "llama3.1" => await Handle(llama31),
+                    _ => throw new ArgumentOutOfRangeException("model")
+                };
             })
         .WithName("GetCategories")
-        .WithOpenApi();
+        .WithOpenApi(operation =>
+        {
+            if (operation.Parameters != null && operation.Parameters.Count > 0)
+            {
+                var modelParameter = operation.Parameters.FirstOrDefault(p => p.Name == "model");
+                if (modelParameter != null)
+                {
+                    modelParameter.Description = "The model to use. Allowed values are 'mistral' and 'llama3.1'.";
+                    modelParameter.Schema = new OpenApiSchema
+                    {
+                        Type = "string",
+                        Enum = new List<IOpenApiAny>
+                        {
+                            new OpenApiString("mistral"),
+                            new OpenApiString("llama3.1")
+                        }
+                    };
+                }
+            }
+            return operation;
+        });
     }
 
     private static async Task<List<Category>> Handle(IOLlamaInteractionService oLlamaInteractionService)

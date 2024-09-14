@@ -14,14 +14,9 @@ using HelloOllamaGeneration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using OllamaTools;
+using Serilog;
 
-public interface IOLlamaInteractionService
-{
-    Task<TResponse> GetAndParseJsonChatCompletion<TResponse>(string prompt, int? maxTokens = null, object? tools = null);
-    Task<string> GetChatCompletion(string prompt);
-}
-
-public class OLlamaInteractionService(ISimpleOllamaChatService ChatCompletionService,
+public class LlamaThreeOneService([FromKeyedServices("llama3.1")] ISimpleOllamaChatService ChatCompletionService,
     IOptionsSnapshot<ModelInfoOptions> modelInfo) : IOLlamaInteractionService
 {
     private readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
@@ -31,6 +26,7 @@ public class OLlamaInteractionService(ISimpleOllamaChatService ChatCompletionSer
 
     public async Task<TResponse> GetAndParseJsonChatCompletion<TResponse>(string prompt, int? maxTokens = null, object? tools = null)
     {
+        Log.Information("modelInfo: {modelInfo}", modelInfo);
         // TODO tools are assumed to be on the kernel but are not actually passed in
         // mistral example https://ollama.com/library/mistral
         // llama example in bruno
@@ -39,12 +35,8 @@ public class OLlamaInteractionService(ISimpleOllamaChatService ChatCompletionSer
             MaxTokens = maxTokens,
             Temperature = 0.9f,
             ResponseFormat = ResponseFormat.Json,
-            FormatRawPrompt = modelInfo.Value.ModelName == "mistral:7b" 
-                    ? (messages, k, autoInvoke) => FormatMistralPromptWithFunctions(messages, k, autoInvoke)
-                    : (messages, k, autoInvoke) => FormatLlamaThreeOnePromptWithFunctions(messages, k, autoInvoke),
-            StopSequences = modelInfo.Value.ModelName == "mistral:7b"  
-                ? new []{ "[/TOOL_CALLS]" } 
-                : new []{ "<|eom_id|>", "<|eot_id|>" },
+            FormatRawPrompt = (messages, k, autoInvoke) => FormatLlamaThreeOnePromptWithFunctions(messages, k, autoInvoke),
+            StopSequences = new []{ "<|eom_id|>", "<|eot_id|>" },
         };
 
         var kernel = (Kernel?)null;
@@ -72,16 +64,13 @@ public class OLlamaInteractionService(ISimpleOllamaChatService ChatCompletionSer
 
     public async Task<string> GetChatCompletion(string prompt)
     {
+        Log.Information("modelInfo: {modelInfo}", modelInfo);
         var executionSettings = new PromptSettings
         {
             Temperature = 0.9f,
-            FormatRawPrompt = modelInfo.Value.ModelName == "mistral:7b" 
-                ? (messages, k, autoInvoke) => FormatSimpleMistralPrompt(messages, k, autoInvoke)
-                : (messages, k, autoInvoke) => FormatSimpleLlamaThreeOnePrompt(messages, k, autoInvoke),
+            FormatRawPrompt = (messages, k, autoInvoke) => FormatSimpleLlamaThreeOnePrompt(messages, k, autoInvoke),
             ResponseFormat = ResponseFormat.Text,
-            StopSequences = modelInfo.Value.ModelName == "mistral:7b"  
-                ? new[] { "END_OF_CONTENT" } 
-                : new[] { "<|eom_id|>", "<|eot_id|>" }
+            StopSequences = new[] { "<|eom_id|>", "<|eot_id|>" }
         };
 
         var chatHistory = new ChatHistory();
@@ -150,80 +139,6 @@ public class OLlamaInteractionService(ISimpleOllamaChatService ChatCompletionSer
                 // ipython: A new role introduced in Llama 3.1. Semantically, this role means "tool". This role is used to mark messages
                 // with the output of a tool call when sent back to the model from the executor.
                 sb.Append("<|begin_of_text|><|start_header_id|>ipython<|end_header_id|> ").Append(message.Content).Append(" <|eot_id|>");
-            }
-        }
-
-        return sb.ToString();
-    }
-
-    private static string FormatSimpleMistralPrompt(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
-    {
-        var sb = new StringBuilder();
-
-        foreach (var message in messages)
-        {
-            if (message.Role == AuthorRole.User || message.Role == AuthorRole.System)
-            {
-                sb.Append("[INST] ").Append(message.Content).Append(" [/INST]");
-            }
-            else if (message.Role == AuthorRole.Tool)
-            {
-                sb.Append("[TOOL_CALLS] ").Append(message.Content).Append(" [/TOOL_CALLS]\n\n");
-            }
-            else
-            {
-                sb.Append("</s> "); // That's right, there's no matching <s>. See https://discuss.huggingface.co/t/skew-between-mistral-prompt-in-docs-vs-chat-template/66674/2
-            }
-        }
-
-        return sb.ToString();
-    }
-
-    private static string FormatMistralPromptWithFunctions(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
-    {
-        // TODO: First fetch the prompt template for the model via /api/show, and then use
-        // that to format the messages. Currently this is hardcoded to the Mistral prompt,
-        // i.e.: [INST] {{ if .System }}{{ .System }} {{ end }}{{ .Prompt }} [/INST]
-        var sb = new StringBuilder();
-        var indexOfLastUserOrSystemMessage = IndexOfLast(messages, m => m.Role == AuthorRole.User || m.Role == AuthorRole.System);
-
-        // IMPORTANT: The whitespace in the prompt is significant. Do not add or remove extra spaces/linebreaks,
-        // as this affects tokenization. Mistral's function calling is useless unless you get this exactly right.
-
-        for (var index = 0; index < messages.Count; index++)
-        {
-            var message = messages[index];
-
-            // Emit tools descriptor immediately before the final [INST]
-            if (index == indexOfLastUserOrSystemMessage && autoInvokeFunctions && kernel is not null)
-            {
-                var tools = kernel.Plugins.SelectMany(p => p.GetFunctionsMetadata()).ToArray() ?? [];
-                if (tools is { Length: > 0 })
-                {
-                    sb.Append("[AVAILABLE_TOOLS] ");
-                    sb.Append(JsonSerializer.Serialize(tools.Select(OllamaChatFunction.Create), OllamaJsonSettings.OllamaJsonSerializerOptions));
-                    sb.Append("[/AVAILABLE_TOOLS]");
-                }
-            }
-
-            if (message.Role == AuthorRole.User || message.Role == AuthorRole.System)
-            {
-                sb.Append("[INST] ");
-                sb.Append(message.Content);
-                sb.Append(" [/INST]");
-            }
-            else if (message.Role == AuthorRole.Tool)
-            {
-                sb.Append("[TOOL_CALLS] ");
-                sb.Append(message.Content);
-                sb.Append(" [/TOOL_CALLS]\n\n");
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(message.Content)) continue;
-                
-                sb.Append(message.Content);
-                sb.Append("</s> "); // That's right, there's no matching <s>. See https://discuss.huggingface.co/t/skew-between-mistral-prompt-in-docs-vs-chat-template/66674/2
             }
         }
 
