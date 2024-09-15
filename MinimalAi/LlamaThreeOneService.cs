@@ -116,7 +116,7 @@ public class LlamaThreeOneService([FromKeyedServices("llama3.1")] ISimpleOllamaC
         }
     }
 
-    private static string FormatSimpleLlamaThreeOnePrompt(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
+    public static string FormatSimpleLlamaThreeOnePrompt(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
     {
         var sb = new StringBuilder();
 

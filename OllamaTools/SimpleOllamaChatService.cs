@@ -3,6 +3,7 @@ namespace OllamaTools;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using HttpClientToCurl;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -21,13 +22,13 @@ public class SimpleOllamaChatService(HttpClient httpClient, string modelName) : 
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/generate");
         request.Content = PrepareChatRequestContent(chatHistory, settings);
-        // httpClient.GenerateCurlInConsole(request,
-        //     config =>
-        //     {
-        //         config.TurnOn = true;
-        //         config.NeedAddDefaultHeaders = true;
-        //         config.EnableCodeBeautification = false;
-        //     });
+        httpClient.GenerateCurlInConsole(request,
+            config =>
+            {
+                config.TurnOn = true;
+                config.NeedAddDefaultHeaders = true;
+                config.EnableCodeBeautification = false;
+            });
         var response = await httpClient.SendAsync(request, cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {

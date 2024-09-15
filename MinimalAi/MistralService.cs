@@ -137,7 +137,7 @@ public class MistralService([FromKeyedServices("mistral")] ISimpleOllamaChatServ
         return sb.ToString();
     }
 
-    private static string FormatMistralPromptWithFunctions(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
+    public static string FormatMistralPromptWithFunctions(ChatHistory messages, Kernel? kernel, bool autoInvokeFunctions)
     {
         // TODO: First fetch the prompt template for the model via /api/show, and then use
         // that to format the messages. Currently this is hardcoded to the Mistral prompt,
