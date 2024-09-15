@@ -11,6 +11,21 @@ using MinimalAi.Models;
 using OllamaTools;
 using Serilog;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Channels;
+using HelloOllamaGeneration;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using OllamaTools;
+using Serilog;
+
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
@@ -211,85 +226,10 @@ app.MapGet("/weatherforecast/hardcode/mistral/{city}", async (string city,
     {
 		var chatHistory = new ChatHistory();
         // chatHistory.AddSystemMessage("You are a helpful assistant with tool calling capabilities. When you receive a tool call response, use the output to format an answer to the original question.");
-        chatHistory.AddSystemMessage("""
+        chatHistory.AddSystemMessage($$$"""
                                      You are a helpful assistant that takes a question and finds the most appropriate tool or tools to execute, along with the parameters required to run the tool. Respond as JSON using the following schema: {"functionName": "function name", "parameters": [{"parameterName": "name of parameter", "parameterValue": "value of parameter"}]}. 
                                      
-                                     The tools are:
-                                     [
-                                     {
-                                         name: "CityToLatLon",
-                                         description: "Get the latitude and longitude for a given city",
-                                         parameters: [
-                                     	    {
-                                     		    name: "city",
-                                     		    description: "The city to get the latitude and longitude for",
-                                     		    type: "string",
-                                     		    required: true,
-                                     	    },
-                                         ],
-                                     },
-                                     {
-                                         name: "WeatherFromLatLon",
-                                         description: "Get the weather for a location",
-                                         parameters: [
-                                     	    {
-                                     		    name: "latitude",
-                                     		    description: "The latitude of the location",
-                                     		    type: "number",
-                                     		    required: true,
-                                     	    },
-                                     	    {
-                                     		    name: "longitude",
-                                     		    description: "The longitude of the location",
-                                     		    type: "number",
-                                     		    required: true,
-                                     	    },
-                                         ],
-                                     },
-                                     {
-                                     	name: "LatLonToCity",
-                                     	description: "Get the city name for a given latitude and longitude",
-                                     	parameters: [
-                                     		{
-                                     			name: "latitude",
-                                     			description: "The latitude of the location",
-                                     			type: "number",
-                                     			required: true,
-                                     		},
-                                     		{
-                                     			name: "longitude",
-                                     			description: "The longitude of the location",
-                                     			type: "number",
-                                     			required: true,
-                                     		},
-                                     	],
-                                     },
-                                     
-                                     {
-                                     	name: "WebSearch",
-                                     	description: "Search the web for a query",
-                                     	parameters: [
-                                     		{
-                                     			name: "query",
-                                     			description: "The query to search for",
-                                     			type: "string",
-                                     			required: true,
-                                     		},
-                                     	],
-                                     },
-                                     {
-                                     	name: "WeatherFromLocation",
-                                     	description: "Get the weather for a location",
-                                     	parameters: [
-                                     		{
-                                     			name: "location",
-                                     			description: "The location to get the weather for",
-                                     			type: "string",
-                                     			required: true,
-                                     		},
-                                     	],
-                                     }
-                                     ]
+                                     The tools are:{{{WeatherTools.toolsString}}}
                                      """);
         
         chatHistory.AddUserMessage($$$"""
@@ -305,10 +245,37 @@ app.MapGet("/weatherforecast/hardcode/mistral/{city}", async (string city,
             FormatRawPrompt = (messages, k, autoInvoke) => MistralService.FormatMistralPromptWithFunctions(messages, k, autoInvoke),
             StopSequences = new []{ "[/TOOL_CALLS]" }
         };
-        var response = await StaticUtils.RunWithRetries(() =>
-            mistralChatCompletionService.GetChatMessageContentAsync(chatHistory, executionSettings, kernel));
         
-        return response?.Content;
+        static TResponse? ReadAndDeserializeChatResponse<TResponse>(string json, JsonSerializerOptions options)
+        {
+	        try
+	        {
+		        var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json).AsSpan());
+		        return JsonSerializer.Deserialize<TResponse>(ref reader, options);
+	        }
+	        catch (Exception ex)
+	        {
+		        Log.Error(ex, $"Error deserializing JSON {json}");
+		        throw;
+	        }
+        }
+        return await StaticUtils.RunWithRetries(async () =>
+        {
+	        var response = await StaticUtils.RunWithRetries(() =>
+		        mistralChatCompletionService.GetChatMessageContentAsync(chatHistory, executionSettings, kernel));
+	        var responseString = response.ToString();
+
+	        // using a retry because sometimes it doesn't return complete json
+	        var parsed = ReadAndDeserializeChatResponse<WeatherTools.FunctionRequest>(responseString, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+	        {
+		        WriteIndented = true
+	        })!;
+
+	        var fnResponse = await WeatherTools.ExecuteFunction(parsed.FunctionName, parsed.Parameters);
+	        
+	        return fnResponse;
+        }, 1);
+        
     })
     .WithName("GetWeatherForecastHardcodeMistral")
     .WithOpenApi();
