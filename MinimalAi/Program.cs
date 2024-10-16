@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
 using HelloOllamaGeneration;
@@ -10,21 +11,9 @@ using MinimalAi.Features;
 using MinimalAi.Models;
 using OllamaTools;
 using Serilog;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Channels;
-using HelloOllamaGeneration;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
-using OllamaTools;
-using Serilog;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +34,15 @@ builder.Services.AddHttpClient(ollamaClientName, client =>
 
 builder.Services.AddCustomMistralService();
 builder.Services.AddCustomLlamaThreeOneService();
+builder.Services.AddChatClient(chatClientBuilder => {
+	var endpoint = new Uri($"http://{configuration["ModelInfo:Url"]}");
+	var modelId = configuration["ModelInfo:ModelName"];
+	return chatClientBuilder.UseFunctionInvocation()
+		.UseOpenTelemetry()
+		.UseLogging()
+		.UseDistributedCache()
+		.Use(new OllamaChatClient(endpoint, modelId));
+});
 
 builder.Services.AddScoped<IChatCompletionService>(services =>
 {
@@ -70,6 +68,30 @@ app.UseHttpsRedirection();
 
 
 app.MapGenerateCategoriesEndpoint();
+
+app.MapPost("/chat", async (IChatClient client, [FromBody] string message) =>
+{
+	var response = await client.CompleteAsync(message, cancellationToken: default);
+	return response;
+});
+app.MapPost("/ai-tool-call", async (IChatClient client) =>
+{
+	[Description("Gets the weather")]
+	string GetWeather()
+	{
+		var r = new Random();
+		return r.NextDouble() > 0.5 ? "It's sunny" : "It's raining";
+	}
+
+	var chatOptions = new ChatOptions
+	{
+		Tools = [AIFunctionFactory.Create(GetWeather) ],
+		ResponseFormat = ChatResponseFormat.Json
+	};
+	
+	return (await client.CompleteAsync("Do I need an umbrella? Please respond with a json object formatted `{ weatherDescription: string, needUmbrella: boolean }`", chatOptions))
+		.Message.Text;
+});
 
 app.MapGet("/weatherforecast/hardcode/llama31/{city}", async (string city, 
         [FromKeyedServices("llama3.1")] IOLlamaInteractionService llamaThreeOne,
